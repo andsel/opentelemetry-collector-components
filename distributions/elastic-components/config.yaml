@@ -10,6 +10,7 @@ processors:
 
 exporters:
   nop:
+  logstash:
 
 connectors:
   spanmetricsv2:

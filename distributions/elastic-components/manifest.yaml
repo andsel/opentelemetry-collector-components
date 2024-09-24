@@ -23,6 +23,7 @@ processors:
 
 exporters:
   - gomod: go.opentelemetry.io/collector/exporter/nopexporter v0.109.0
+  - gomod: github.com/elastic/opentelemetry-collector-components/exporter/logstashexporter v0.0.0
 
 # workaround known issue https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.109.0
 providers:
@@ -37,3 +38,4 @@ replaces:
   - github.com/elastic/opentelemetry-collector-components/processor/elastictraceprocessor => ../processor/elastictraceprocessor
   - github.com/elastic/opentelemetry-collector-components/processor/lsmintervalprocessor => ../processor/lsmintervalprocessor
   - github.com/elastic/opentelemetry-collector-components/connector/spanmetricsconnectorv2 => ../connector/spanmetricsconnectorv2
+  - github.com/elastic/opentelemetry-collector-components/exporter/logstashexporter => ../exporter/logstashexporter
