@@ -12,6 +12,8 @@ import (
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/configtelemetry"
 	"go.opentelemetry.io/collector/exporter"
+	"go.opentelemetry.io/collector/exporter/exporterhelper"
+	"go.uber.org/zap"
 )
 
 var componentType = component.MustNewType("logstash")
@@ -36,10 +38,18 @@ func createDefaultConfig() component.Config {
 func createLogsExporter(
 	ctx context.Context,
 	set exporter.Settings,
-	cfg component.Config,
+	config component.Config,
 ) (exporter.Logs, error) {
-	//cfg := config.(*Config)
-	return nil, errors.New("not yet implemented")
+	cfg := config.(*Config)
+	exporterLogger := createLogger(cfg, set.TelemetrySettings.Logger)
+	exporter := newLogstashExporter(cfg, set, exporterLogger)
+
+	return exporterhelper.NewLogsExporter(
+		ctx,
+		set,
+		cfg,
+		exporter.pushLogsData,
+	)
 }
 
 func createMetricsExporter(
@@ -58,4 +68,25 @@ func createTracesExporter(
 ) (exporter.Traces, error) {
 	//cfg := config.(*Config)
 	return nil, errors.New("not yet implemented")
+}
+
+func createLogger(cfg *Config, logger *zap.Logger) *zap.Logger {
+	encoderConfig := zap.NewDevelopmentEncoderConfig()
+	// Do not prefix the output with log level (`info`)
+	encoderConfig.LevelKey = ""
+	// Do not prefix the output with current timestamp.
+	encoderConfig.TimeKey = ""
+	zapConfig := zap.Config{
+		Level:         zap.NewAtomicLevelAt(zap.InfoLevel),
+		DisableCaller: true,
+		//Sampling: &zap.SamplingConfig{
+		//	Initial:    exporterConfig.SamplingInitial,
+		//	Thereafter: exporterConfig.SamplingThereafter,
+		//},
+		Encoding:      "console",
+		EncoderConfig: encoderConfig,
+		// Send exporter's output to stdout. This should be made configurable.
+		OutputPaths: []string{"stdout"},
+	}
+	return zap.Must(zapConfig.Build())
 }
