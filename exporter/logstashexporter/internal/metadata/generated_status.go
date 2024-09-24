@@ -7,11 +7,10 @@ import (
 )
 
 var (
-	Type = component.MustNewType("logstash")
+	Type      = component.MustNewType("logstash")
+	ScopeName = "github.com/open-telemetry/opentelemetry-collector-contrib/exporter/logstashexporter"
 )
 
 const (
-	MetricsStability = component.StabilityLevelDevelopment
-	TracesStability  = component.StabilityLevelBeta
-	LogsStability    = component.StabilityLevelBeta
+	LogsStability = component.StabilityLevelAlpha
 )
