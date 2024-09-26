@@ -45,19 +45,7 @@ func makeLogstash(beat beat.Info, observer Observer, lsConfig *Config, log *zap.
 
 	clients := make([]NetworkClient, len(lsConfig.Hosts))
 	for i, host := range lsConfig.Hosts {
-		var client NetworkClient
-
-		conn, err := transport.NewClient(transp, "tcp", host, defaultPort)
-		if err != nil {
-			return nil, err
-		}
-
-		// TODO: Async client / Load balancer, etc
-		//if lsConfig.Pipelining > 0 {
-		//	client, err = newAsyncClient(beat, conn, observer, lsConfig)
-		//} else {
-		client, err = newSyncClient(beat, conn, observer, lsConfig, log)
-		//}
+		client, err := createLumberjackClient(beat, transp, host, observer, lsConfig, log)
 		if err != nil {
 			return nil, err
 		}
@@ -67,4 +55,31 @@ func makeLogstash(beat beat.Info, observer Observer, lsConfig *Config, log *zap.
 	}
 
 	return clients, nil
+}
+
+func createLumberjackClient(
+	beat beat.Info,
+	transp transport.Config,
+	host string,
+	observer Observer,
+	lsConfig *Config,
+	log *zap.Logger,
+) (NetworkClient, error) {
+	var client NetworkClient
+
+	conn, err := transport.NewClient(transp, "tcp", host, defaultPort)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: Async client / Load balancer, etc
+	//if lsConfig.Pipelining > 0 {
+	//	client, err = newAsyncClient(beat, conn, observer, lsConfig)
+	//} else {
+	client, err = newSyncClient(beat, conn, observer, lsConfig, log)
+	//}
+	if err != nil {
+		return nil, err
+	}
+	return client, nil
 }
