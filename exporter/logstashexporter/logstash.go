@@ -22,6 +22,7 @@ import (
 	"github.com/elastic/elastic-agent-libs/transport/tlscommon"
 	"github.com/elastic/opentelemetry-collector-components/exporter/logstashexporter/internal/beat"
 	"go.uber.org/zap"
+	"math/rand"
 )
 
 const (
@@ -42,25 +43,34 @@ func makeLogstash(beat beat.Info, observer Observer, lsConfig *Config, log *zap.
 		TLS:     tls,
 		Stats:   observer,
 	}
-
 	clients := make([]NetworkClient, len(lsConfig.Hosts))
-	for i, host := range lsConfig.Hosts {
-		client, err := createLumberjackClient(beat, transp, host, observer, lsConfig, log)
-		if err != nil {
-			return nil, err
-		}
 
-		//client = outputs.WithBackoff(client, lsConfig.Backoff.Init, lsConfig.Backoff.Max)
-		clients[i] = client
+	// Assume lsConfig.LoadBalance is false, pick one randomly
+	host := selectHost(lsConfig.Hosts)
+
+	client, err := createLumberjackClient(host, beat, transp, observer, lsConfig, log)
+	if err != nil {
+		return nil, err
 	}
-
+	clients[0] = client
 	return clients, nil
 }
 
+// select the first host if contains only one or picks one randomly
+func selectHost(hosts []string) string {
+	if len(hosts) == 1 {
+		return hosts[0]
+	}
+
+	// pick one randomly
+	randIndex := rand.Intn(len(hosts))
+	return hosts[randIndex]
+}
+
 func createLumberjackClient(
+	host string,
 	beat beat.Info,
 	transp transport.Config,
-	host string,
 	observer Observer,
 	lsConfig *Config,
 	log *zap.Logger,
@@ -81,5 +91,6 @@ func createLumberjackClient(
 	if err != nil {
 		return nil, err
 	}
+	//client = outputs.WithBackoff(client, lsConfig.Backoff.Init, lsConfig.Backoff.Max)
 	return client, nil
 }
