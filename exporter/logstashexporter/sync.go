@@ -19,6 +19,7 @@ package logstashexporter
 
 import (
 	"context"
+	"errors"
 	"github.com/elastic/opentelemetry-collector-components/exporter/logstashexporter/internal/beat"
 	"go.opentelemetry.io/collector/consumer/consumererror"
 	"go.opentelemetry.io/collector/pdata/pcommon"
@@ -172,8 +173,12 @@ func (c *syncClient) Publish(_ context.Context, logs plog.Logs) error {
 			c.log.Sugar().Errorf("Failed to publish events caused by: %+v", err)
 
 			rest := len(events)
-			st.RetryableErrors(rest)
+			if consumererror.IsPermanent(err) {
+				st.PermanentErrors(rest)
+				return err
+			}
 
+			st.RetryableErrors(rest)
 			return consumererror.NewLogs(err, logs)
 		}
 
@@ -204,22 +209,27 @@ func (c *syncClient) publishWindowed(events []plog.LogRecord) (int, error) {
 }
 
 func (c *syncClient) sendEvents(events []plog.LogRecord) (int, error) {
-	window := make([]interface{}, len(events))
-	//TODO: needs more tests
+	window := make([]interface{}, 0, len(events))
+	//TODO: needs more tests and definitions regarding non-beats events actions
 	for i := range events {
 		logRecord := events[i]
 		logRecordBody, ok := newLogRecordBody(&logRecord)
-		// TODO: Possibly not a beats event, how should we handle it?
 		if !ok {
-			continue
+			return 0, consumererror.NewPermanent(errors.New("invalid beats event body"))
 		}
+
+		metadata := extractEventMetadata(logRecordBody)
+		if !isBeatsEvent(metadata) {
+			return 0, consumererror.NewPermanent(errors.New("received a non-beats event"))
+		}
+
 		timestamp, ok := extractEventTimestamp(logRecordBody)
 		if !ok {
 			timestamp = logRecord.ObservedTimestamp().AsTime()
 		}
-		metadata := extractEventMetadata(logRecordBody)
+
 		fields := logRecordBody.AsRaw()
-		window[i] = &beat.Event{Timestamp: timestamp, Meta: metadata, Fields: fields}
+		window = append(window, &beat.Event{Timestamp: timestamp, Meta: metadata, Fields: fields})
 	}
 
 	// TODO: Move to the load-balancer?
@@ -229,6 +239,11 @@ func (c *syncClient) sendEvents(events []plog.LogRecord) (int, error) {
 	}
 
 	return c.client.Send(window)
+}
+
+func isBeatsEvent(metadata map[string]any) bool {
+	_, ok := metadata["beat"]
+	return ok
 }
 
 func newLogRecordBody(logRecord *plog.LogRecord) (*pcommon.Map, bool) {
