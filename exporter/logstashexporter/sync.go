@@ -21,6 +21,7 @@ import (
 	"context"
 	"github.com/elastic/opentelemetry-collector-components/exporter/logstashexporter/internal/beat"
 	"go.opentelemetry.io/collector/consumer/consumererror"
+	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.uber.org/zap"
 	"time"
@@ -163,7 +164,6 @@ func (c *syncClient) Publish(_ context.Context, logs plog.Logs) error {
 		if err != nil {
 			// return batch to pipeline before reporting/counting error
 			//batch.RetryEvents(events)
-
 			if c.win != nil {
 				c.win.shrinkWindow()
 			}
@@ -205,15 +205,21 @@ func (c *syncClient) publishWindowed(events []plog.LogRecord) (int, error) {
 
 func (c *syncClient) sendEvents(events []plog.LogRecord) (int, error) {
 	window := make([]interface{}, len(events))
+	//TODO: needs more tests
 	for i := range events {
-		record := events[i]
-		//TODO: Testing purpose, it should deserialize from LogRecord.Body, send it as-it-is?
-		event := beat.Event{
-			Timestamp: record.Timestamp().AsTime(),
-			Meta:      map[string]interface{}{},
-			Fields:    record.Attributes().AsRaw(),
+		logRecord := events[i]
+		logRecordBody, ok := newLogRecordBody(&logRecord)
+		// TODO: Possibly not a beats event, how should we handle it?
+		if !ok {
+			continue
 		}
-		window[i] = &event
+		timestamp, ok := extractEventTimestamp(logRecordBody)
+		if !ok {
+			timestamp = logRecord.ObservedTimestamp().AsTime()
+		}
+		metadata := extractEventMetadata(logRecordBody)
+		fields := logRecordBody.AsRaw()
+		window[i] = &beat.Event{Timestamp: timestamp, Meta: metadata, Fields: fields}
 	}
 
 	// TODO: Move to the load-balancer?
@@ -223,4 +229,41 @@ func (c *syncClient) sendEvents(events []plog.LogRecord) (int, error) {
 	}
 
 	return c.client.Send(window)
+}
+
+func newLogRecordBody(logRecord *plog.LogRecord) (*pcommon.Map, bool) {
+	cp := pcommon.NewMap()
+	if logRecord.Body().Type() != pcommon.ValueTypeMap {
+		return nil, false
+	}
+	logRecord.Body().Map().CopyTo(cp)
+	return &cp, true
+}
+
+func extractEventTimestamp(logRecordBody *pcommon.Map) (time.Time, bool) {
+	timestamp, ok := logRecordBody.Get("@timestamp")
+	if !ok {
+		return time.Time{}, false
+	}
+	if timestamp.Type() != pcommon.ValueTypeInt {
+		return time.Time{}, false
+	}
+
+	result := time.UnixMilli(timestamp.Int())
+	logRecordBody.Remove("@timestamp")
+	return result, true
+}
+
+func extractEventMetadata(logRecordBody *pcommon.Map) map[string]any {
+	recordMetadata, hasMetadata := logRecordBody.Get("@metadata")
+	if !hasMetadata {
+		return nil
+	}
+	if recordMetadata.Type() != pcommon.ValueTypeMap {
+		return nil
+	}
+
+	metadataMap := recordMetadata.Map()
+	logRecordBody.Remove("@metadata")
+	return metadataMap.AsRaw()
 }

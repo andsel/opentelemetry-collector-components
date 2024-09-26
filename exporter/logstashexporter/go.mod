@@ -6,11 +6,11 @@ require (
 	github.com/elastic/elastic-agent-libs v0.11.0
 	github.com/elastic/go-lumber v0.1.1
 	github.com/elastic/go-structform v0.0.9
-	github.com/gofrs/uuid/v5 v5.2.0
 	go.opentelemetry.io/collector/component v0.109.0
 	go.opentelemetry.io/collector/consumer v0.109.0
 	go.opentelemetry.io/collector/exporter v0.109.0
 	go.opentelemetry.io/collector/pdata v1.16.0
+	go.uber.org/zap v1.27.0
 )
 
 require (
@@ -45,7 +45,6 @@ require (
 	go.opentelemetry.io/otel/metric v1.29.0 // indirect
 	go.opentelemetry.io/otel/trace v1.29.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/crypto v0.26.0 // indirect
 	golang.org/x/net v0.28.0 // indirect
 	golang.org/x/sys v0.24.0 // indirect
