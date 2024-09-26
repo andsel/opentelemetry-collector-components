@@ -46,13 +46,17 @@ func makeLogstash(beat beat.Info, observer Observer, lsConfig *Config, log *zap.
 	clients := make([]NetworkClient, len(lsConfig.Hosts))
 
 	// Assume lsConfig.LoadBalance is false, pick one randomly
-	host := selectHost(lsConfig.Hosts)
+	if !lsConfig.LoadBalance {
+		host := selectHost(lsConfig.Hosts)
 
-	client, err := createLumberjackClient(host, beat, transp, observer, lsConfig, log)
-	if err != nil {
-		return nil, err
+		client, err := createLumberjackClient(host, beat, transp, observer, lsConfig, log)
+		if err != nil {
+			return nil, err
+		}
+		clients[0] = client
+	} else {
+		// TODO create one client for each host
 	}
-	clients[0] = client
 	return clients, nil
 }
 
