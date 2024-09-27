@@ -125,6 +125,7 @@ func (c *syncClient) Publish(_ context.Context, logs plog.Logs) error {
 		return nil
 	}
 
+	// TODO if load balancing is active partition the list of logRecords by the number of clients and send a slice to every one (Option 2)
 	for len(events) > 0 {
 
 		// check if we need to reconnect

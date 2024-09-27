@@ -22,6 +22,7 @@ import (
 	"github.com/elastic/elastic-agent-libs/transport/tlscommon"
 	"github.com/elastic/opentelemetry-collector-components/exporter/logstashexporter/internal/beat"
 	"go.uber.org/zap"
+	"math/rand"
 )
 
 const (
@@ -51,29 +52,58 @@ func makeLogstash(beat beat.Info, observer Observer, lsConfig *Config, log *zap.
 		TLS:   tls,
 		Stats: observer,
 	}
-
 	clients := make([]NetworkClient, len(lsConfig.Hosts))
-	for i, host := range lsConfig.Hosts {
-		var client NetworkClient
 
-		conn, err := transport.NewClient(transp, "tcp", host, defaultPort)
+	// Assume lsConfig.LoadBalance is false, pick one randomly
+	if !lsConfig.LoadBalance {
+		host := selectHost(lsConfig.Hosts)
+
+		client, err := createLumberjackClient(host, beat, transp, observer, lsConfig, log)
 		if err != nil {
 			return nil, err
 		}
+		clients[0] = client
+	} else {
+		// TODO create one client for each host
+	}
+	return clients, nil
+}
 
-		// TODO: Async client / Load balancer, etc
-		//if lsConfig.Pipelining > 0 {
-		//	client, err = newAsyncClient(beat, conn, observer, lsConfig)
-		//} else {
-		client, err = newSyncClient(beat, conn, observer, lsConfig, log)
-		//}
-		if err != nil {
-			return nil, err
-		}
-
-		//client = outputs.WithBackoff(client, lsConfig.Backoff.Init, lsConfig.Backoff.Max)
-		clients[i] = client
+// select the first host if contains only one or picks one randomly
+func selectHost(hosts []string) string {
+	if len(hosts) == 1 {
+		return hosts[0]
 	}
 
-	return clients, nil
+	// pick one randomly
+	randIndex := rand.Intn(len(hosts))
+	return hosts[randIndex]
+}
+
+func createLumberjackClient(
+	host string,
+	beat beat.Info,
+	transp transport.Config,
+	observer Observer,
+	lsConfig *Config,
+	log *zap.Logger,
+) (NetworkClient, error) {
+	var client NetworkClient
+
+	conn, err := transport.NewClient(transp, "tcp", host, defaultPort)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: Async client / Load balancer, etc
+	//if lsConfig.Pipelining > 0 {
+	//	client, err = newAsyncClient(beat, conn, observer, lsConfig)
+	//} else {
+	client, err = newSyncClient(beat, conn, observer, lsConfig, log)
+	//}
+	if err != nil {
+		return nil, err
+	}
+	//client = outputs.WithBackoff(client, lsConfig.Backoff.Init, lsConfig.Backoff.Max)
+	return client, nil
 }
