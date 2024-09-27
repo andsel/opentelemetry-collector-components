@@ -1,4 +1,4 @@
-type: logstash
+type: lumberjack
 
 status:
   class: exporter

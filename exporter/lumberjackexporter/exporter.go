@@ -1,9 +1,9 @@
-package logstashexporter
+package lumberjackexporter
 
 import (
 	"context"
 	"errors"
-	"github.com/elastic/opentelemetry-collector-components/exporter/logstashexporter/internal/beat"
+	"github.com/elastic/opentelemetry-collector-components/exporter/lumberjackexporter/internal/beat"
 	"go.opentelemetry.io/collector/exporter"
 	"go.opentelemetry.io/collector/exporter/exporterhelper"
 	"go.opentelemetry.io/collector/pdata/plog"

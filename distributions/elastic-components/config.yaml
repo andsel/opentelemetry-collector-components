@@ -10,7 +10,7 @@ processors:
 
 exporters:
   nop:
-  logstash:
+  lumberjack:
 
 connectors:
   spanmetricsv2:

@@ -21,9 +21,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/elastic/opentelemetry-collector-components/exporter/logstashexporter/internal/beat"
-	"github.com/elastic/opentelemetry-collector-components/exporter/logstashexporter/internal/common"
-	"github.com/elastic/opentelemetry-collector-components/exporter/logstashexporter/internal/common/dtfmt"
+	"github.com/elastic/opentelemetry-collector-components/exporter/lumberjackexporter/internal/beat"
+	"github.com/elastic/opentelemetry-collector-components/exporter/lumberjackexporter/internal/common"
+	"github.com/elastic/opentelemetry-collector-components/exporter/lumberjackexporter/internal/common/dtfmt"
 
 	"reflect"
 	"strconv"

@@ -17,7 +17,7 @@
 
 package codec
 
-import "github.com/elastic/opentelemetry-collector-components/exporter/logstashexporter/internal/beat"
+import "github.com/elastic/opentelemetry-collector-components/exporter/lumberjackexporter/internal/beat"
 
 type Codec interface {
 	Encode(index string, event *beat.Event) ([]byte, error)

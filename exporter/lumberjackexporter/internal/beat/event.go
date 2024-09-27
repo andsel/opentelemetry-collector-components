@@ -20,7 +20,7 @@ package beat
 import (
 	"errors"
 	"fmt"
-	"github.com/elastic/opentelemetry-collector-components/exporter/logstashexporter/internal/common"
+	"github.com/elastic/opentelemetry-collector-components/exporter/lumberjackexporter/internal/common"
 	"strings"
 	"time"
 

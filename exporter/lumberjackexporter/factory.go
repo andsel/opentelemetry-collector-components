@@ -1,12 +1,12 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package logstashexporter // import "github.com/open-telemetry/opentelemetry-collector-contrib/exporter/syslogexporter"
+package lumberjackexporter // import "github.com/open-telemetry/opentelemetry-collector-contrib/exporter/syslogexporter"
 
 import (
 	"context"
 	"fmt"
-	"github.com/elastic/opentelemetry-collector-components/exporter/logstashexporter/internal/metadata"
+	"github.com/elastic/opentelemetry-collector-components/exporter/lumberjackexporter/internal/metadata"
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/exporter"

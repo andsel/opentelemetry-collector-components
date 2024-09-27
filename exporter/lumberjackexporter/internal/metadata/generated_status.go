@@ -7,8 +7,8 @@ import (
 )
 
 var (
-	Type      = component.MustNewType("logstash")
-	ScopeName = "github.com/open-telemetry/opentelemetry-collector-contrib/exporter/logstashexporter"
+	Type      = component.MustNewType("lumberjack")
+	ScopeName = "github.com/open-telemetry/opentelemetry-collector-contrib/exporter/lumberjackexporter"
 )
 
 const (

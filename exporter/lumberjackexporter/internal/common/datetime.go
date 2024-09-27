@@ -22,7 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/elastic/opentelemetry-collector-components/exporter/logstashexporter/internal/common/dtfmt"
+	"github.com/elastic/opentelemetry-collector-components/exporter/lumberjackexporter/internal/common/dtfmt"
 	"hash"
 	"time"
 
@@ -64,9 +64,9 @@ var (
 	}
 
 	precisions = map[TimestampPrecision]timestampFmt{
-		millisecPrecision: timestampFmt{utc: millisecPrecisionFmt, local: localMillisecPrecisionFmt},
-		microsecPrecision: timestampFmt{utc: microsecPrecisionFmt, local: localMicrosecPrecisionFmt},
-		nanosecPrecision:  timestampFmt{utc: nanosecPrecisionFmt, local: localNanosecPrecisionFmt},
+		millisecPrecision: {utc: millisecPrecisionFmt, local: localMillisecPrecisionFmt},
+		microsecPrecision: {utc: microsecPrecisionFmt, local: localMicrosecPrecisionFmt},
+		nanosecPrecision:  {utc: nanosecPrecisionFmt, local: localNanosecPrecisionFmt},
 	}
 
 	// tsFmt is the selected timestamp format

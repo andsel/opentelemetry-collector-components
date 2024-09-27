@@ -22,8 +22,8 @@ import (
 	stdjson "encoding/json"
 	"github.com/elastic/go-structform/gotype"
 	"github.com/elastic/go-structform/json"
-	"github.com/elastic/opentelemetry-collector-components/exporter/logstashexporter/internal/beat"
-	"github.com/elastic/opentelemetry-collector-components/exporter/logstashexporter/internal/codec"
+	"github.com/elastic/opentelemetry-collector-components/exporter/lumberjackexporter/internal/beat"
+	"github.com/elastic/opentelemetry-collector-components/exporter/lumberjackexporter/internal/codec"
 )
 
 // Encoder for serializing a beat.Event to json.

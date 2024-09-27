@@ -18,7 +18,7 @@
 // Package outputs defines common types and interfaces to be implemented by
 // output plugins.
 
-package logstashexporter
+package lumberjackexporter
 
 import (
 	"context"

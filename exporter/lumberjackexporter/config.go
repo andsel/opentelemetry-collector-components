@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package logstashexporter
+package lumberjackexporter
 
 import (
 	"errors"
 	"time"
 
-	"github.com/elastic/opentelemetry-collector-components/exporter/logstashexporter/internal/elasticagentlib"
+	"github.com/elastic/opentelemetry-collector-components/exporter/lumberjackexporter/internal/elasticagentlib"
 	"go.opentelemetry.io/collector/component"
 )
 

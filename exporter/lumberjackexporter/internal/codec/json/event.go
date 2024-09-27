@@ -18,7 +18,7 @@
 package json
 
 import (
-	"github.com/elastic/opentelemetry-collector-components/exporter/logstashexporter/internal/beat"
+	"github.com/elastic/opentelemetry-collector-components/exporter/lumberjackexporter/internal/beat"
 	"time"
 
 	"github.com/elastic/elastic-agent-libs/mapstr"

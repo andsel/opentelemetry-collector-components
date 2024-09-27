@@ -1,4 +1,4 @@
-module github.com/elastic/opentelemetry-collector-components/exporter/logstashexporter
+module github.com/elastic/opentelemetry-collector-components/exporter/lumberjackexporter
 
 go 1.22.0
 

@@ -18,8 +18,8 @@
 package codec
 
 import (
-	"github.com/elastic/opentelemetry-collector-components/exporter/logstashexporter/internal/common"
-	"github.com/elastic/opentelemetry-collector-components/exporter/logstashexporter/internal/common/dtfmt"
+	"github.com/elastic/opentelemetry-collector-components/exporter/lumberjackexporter/internal/common"
+	"github.com/elastic/opentelemetry-collector-components/exporter/lumberjackexporter/internal/common/dtfmt"
 	"time"
 
 	"github.com/elastic/go-structform"

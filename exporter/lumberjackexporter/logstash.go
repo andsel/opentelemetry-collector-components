@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package logstashexporter
+package lumberjackexporter
 
 import (
 	"github.com/elastic/elastic-agent-libs/transport"
 	"github.com/elastic/elastic-agent-libs/transport/tlscommon"
-	"github.com/elastic/opentelemetry-collector-components/exporter/logstashexporter/internal/beat"
+	"github.com/elastic/opentelemetry-collector-components/exporter/lumberjackexporter/internal/beat"
 	"go.uber.org/zap"
 )
 
