@@ -22,7 +22,7 @@ package lumberjackexporter
 
 import (
 	"context"
-	"go.opentelemetry.io/collector/pdata/plog"
+	"github.com/elastic/opentelemetry-collector-components/exporter/lumberjackexporter/internal"
 )
 
 // Client provides the minimal interface an output must implement to be usable
@@ -36,7 +36,7 @@ type Client interface {
 	// the publisher pipeline. The publisher pipeline (if configured by the output
 	// factory) will take care of retrying/dropping events.
 	// Context is intended for carrying request-scoped values, not for cancellation.
-	Publish(context.Context, plog.Logs) error
+	Publish(context.Context, *internal.LogRecordBatch) error
 
 	// String identifies the client type and endpoint.
 	String() string
