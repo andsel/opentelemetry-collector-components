@@ -20,12 +20,13 @@ package lumberjackexporter
 import (
 	"context"
 	"errors"
+	"time"
+
 	"github.com/elastic/opentelemetry-collector-components/exporter/lumberjackexporter/internal/beat"
 	"go.opentelemetry.io/collector/consumer/consumererror"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.uber.org/zap"
-	"time"
 
 	"github.com/elastic/elastic-agent-libs/transport"
 	v2 "github.com/elastic/go-lumber/client/v2"
@@ -230,13 +231,20 @@ func (c *syncClient) sendEvents(events []plog.LogRecord) (int, error) {
 
 		fields := logRecordBody.AsRaw()
 		window = append(window, &beat.Event{Timestamp: timestamp, Meta: metadata, Fields: fields})
+
+		// test with otel-contrib
+		//window = append(window,
+		//	&beat.Event{
+		//		Timestamp: events[i].Timestamp().AsTime(),
+		//		Meta:      map[string]interface{}{},
+		//		Fields:    events[i].Attributes().AsRaw()})
 	}
 
 	// TODO: Move to the load-balancer?
-	err := c.Client.Connect()
-	if err != nil {
-		return 0, err
-	}
+	//err := c.Client.Connect()
+	//if err != nil {
+	//	return 0, err
+	//}
 
 	return c.client.Send(window)
 }

@@ -28,6 +28,7 @@ import (
 type Config struct {
 	Hosts            []string                   `mapstructure:"hosts"`
 	Index            string                     `mapstructure:"index"`
+	Workers          int                        `mapstructure:"workers"`
 	LoadBalance      bool                       `mapstructure:"loadbalance"`
 	BulkMaxSize      int                        `mapstructure:"bulk_max_size"`
 	SlowStart        bool                       `mapstructure:"slow_start"`
@@ -62,7 +63,8 @@ func defaultConfig() Config {
 	defaultTLSEnabled := false
 
 	return Config{
-		LoadBalance:      false,
+		Workers:          2,
+		LoadBalance:      true,
 		Pipelining:       2,
 		BulkMaxSize:      2048,
 		SlowStart:        false,

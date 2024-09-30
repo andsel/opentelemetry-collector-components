@@ -6,7 +6,11 @@ package lumberjackexporter // import "github.com/open-telemetry/opentelemetry-co
 import (
 	"context"
 	"fmt"
+
+	"github.com/elastic/opentelemetry-collector-components/exporter/lumberjackexporter/internal/beat"
 	"github.com/elastic/opentelemetry-collector-components/exporter/lumberjackexporter/internal/metadata"
+	"go.opentelemetry.io/collector/consumer"
+	"go.opentelemetry.io/collector/exporter/exporterhelper"
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/exporter"
@@ -28,13 +32,19 @@ func createDefaultConfig() component.Config {
 
 func createLogsExporter(
 	ctx context.Context,
-	params exporter.Settings,
+	settings exporter.Settings,
 	cfg component.Config,
 ) (exporter.Logs, error) {
-	config := cfg.(*Config)
-	exp, err := newLogsExporter(ctx, params, config)
+
+	lje, err := newLumberjackExporter(cfg.(*Config), beat.Info{}, NewNilObserver(), settings)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the logs exporter: %w", err)
 	}
-	return exp, nil
+
+	return exporterhelper.NewLogsExporter(ctx, settings, cfg,
+		lje.pushLogs,
+		exporterhelper.WithCapabilities(consumer.Capabilities{MutatesData: false}),
+		exporterhelper.WithStart(lje.Start),
+		exporterhelper.WithShutdown(lje.Shutdown),
+	)
 }

@@ -22,6 +22,7 @@ package lumberjackexporter
 
 import (
 	"context"
+
 	"go.opentelemetry.io/collector/pdata/plog"
 )
 
