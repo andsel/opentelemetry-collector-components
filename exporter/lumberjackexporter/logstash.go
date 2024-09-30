@@ -61,17 +61,12 @@ func makeLogstash(beat beat.Info, observer Observer, lsConfig *Config, log *zap.
 			return nil, err
 		}
 
-		// TODO: Async client / Load balancer, etc
-		//if lsConfig.Pipelining > 0 {
-		//	client, err = newAsyncClient(beat, conn, observer, lsConfig)
-		//} else {
+		// TODO: Async client (lsConfig.Pipelining > 0) / Load balancer, etc
 		client, err = newSyncClient(beat, conn, observer, lsConfig, log)
-		//}
 		if err != nil {
 			return nil, err
 		}
 
-		//client = outputs.WithBackoff(client, lsConfig.Backoff.Init, lsConfig.Backoff.Max)
 		clients[i] = client
 	}
 

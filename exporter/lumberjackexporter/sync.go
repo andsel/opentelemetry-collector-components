@@ -19,11 +19,9 @@ package lumberjackexporter
 
 import (
 	"context"
-	"errors"
+	"github.com/elastic/opentelemetry-collector-components/exporter/lumberjackexporter/internal"
 	"github.com/elastic/opentelemetry-collector-components/exporter/lumberjackexporter/internal/beat"
 	"go.opentelemetry.io/collector/consumer/consumererror"
-	"go.opentelemetry.io/collector/pdata/pcommon"
-	"go.opentelemetry.io/collector/pdata/plog"
 	"go.uber.org/zap"
 	"time"
 
@@ -34,11 +32,11 @@ import (
 type syncClient struct {
 	log *zap.Logger
 	*transport.Client
-	client   *v2.SyncClient
-	observer Observer
-	win      *window
-	ttl      time.Duration
-	ticker   *time.Ticker
+	client    *v2.SyncClient
+	observer  Observer
+	win       *window
+	ttl       time.Duration
+	ttlTicker *time.Ticker
 }
 
 func newSyncClient(
@@ -59,7 +57,7 @@ func newSyncClient(
 		c.win = newWindower(defaultStartMaxWindowSize, config.BulkMaxSize)
 	}
 	if c.ttl > 0 {
-		c.ticker = time.NewTicker(c.ttl)
+		c.ttlTicker = time.NewTicker(c.ttl)
 	}
 
 	var err error
@@ -83,15 +81,15 @@ func (c *syncClient) Connect() error {
 		return err
 	}
 
-	if c.ticker != nil {
-		c.ticker = time.NewTicker(c.ttl)
+	if c.ttlTicker != nil {
+		c.ttlTicker = time.NewTicker(c.ttl)
 	}
 	return nil
 }
 
 func (c *syncClient) Close() error {
-	if c.ticker != nil {
-		c.ticker.Stop()
+	if c.ttlTicker != nil {
+		c.ttlTicker.Stop()
 	}
 	c.log.Debug("close connection")
 	return c.Client.Close()
@@ -104,38 +102,23 @@ func (c *syncClient) reconnect() error {
 	return c.Client.Connect()
 }
 
-func (c *syncClient) Publish(_ context.Context, logs plog.Logs) error {
-	var events []plog.LogRecord
+func (c *syncClient) Publish(_ context.Context, batch *internal.LogRecordBatch) error {
 	st := c.observer
-
-	for i := 0; i < logs.ResourceLogs().Len(); i++ {
-		resourceLogs := logs.ResourceLogs().At(i)
-		for j := 0; j < resourceLogs.ScopeLogs().Len(); j++ {
-			scopeLogs := resourceLogs.ScopeLogs().At(j)
-			for k := 0; k < scopeLogs.LogRecords().Len(); k++ {
-				logRecord := scopeLogs.LogRecords().At(k)
-				events = append(events, logRecord)
-			}
-		}
-	}
-
-	st.NewBatch(len(events))
-	if len(events) == 0 {
-		//batch.ACK()
+	st.NewBatch(batch.Len())
+	if batch.Len() == 0 {
 		return nil
 	}
 
-	for len(events) > 0 {
+	defer c.logBatchPermanentErrors(batch)
 
+	for batch.PendingLogsCount() > 0 {
 		// check if we need to reconnect
-		if c.ticker != nil {
+		if c.ttlTicker != nil {
 			select {
-			case <-c.ticker.C:
+			case <-c.ttlTicker.C:
 				if err := c.reconnect(); err != nil {
-					//batch.Retry()
-					return consumererror.NewLogs(err, logs)
+					return consumererror.NewLogs(err, batch.RetryPendingLogs())
 				}
-
 				// reset window size on reconnect
 				if c.win != nil {
 					c.win.windowSize = int32(defaultStartMaxWindowSize)
@@ -144,62 +127,72 @@ func (c *syncClient) Publish(_ context.Context, logs plog.Logs) error {
 			}
 		}
 
-		var (
-			n   int
-			err error
-		)
-
 		begin := time.Now()
+		var sent int
+		var err error
 		if c.win == nil {
-			n, err = c.sendEvents(events)
+			sent, err = c.sendAllEvents(batch)
 		} else {
-			n, err = c.publishWindowed(events)
+			sent, err = c.publishWindowed(batch)
 		}
+
 		took := time.Since(begin)
 		st.ReportLatency(took)
-		c.log.Sugar().Debugf("%v events out of %v events sent to logstash host %s. Continue sending",
-			n, len(events), c.Host())
+		st.AckedEvents(sent)
+		c.log.Sugar().Debugf("%v events out of %v sent to host %s, and %v permanent errors.",
+			sent, batch.Len(), c.Host(), batch.PermanentErrorsCount())
 
-		events = events[n:]
-		st.AckedEvents(n)
 		if err != nil {
-			// return batch to pipeline before reporting/counting error
-			//batch.RetryEvents(events)
 			if c.win != nil {
 				c.win.shrinkWindow()
 			}
 			_ = c.Close()
-
 			c.log.Sugar().Errorf("Failed to publish events caused by: %+v", err)
 
-			rest := len(events)
-			if consumererror.IsPermanent(err) {
-				st.PermanentErrors(rest)
-				return err
+			pending := batch.PendingLogsCount()
+			permanent := batch.PermanentErrorsCount()
+			if permanent > 0 {
+				st.PermanentErrors(permanent)
+				// No more logs to retry or send
+				if pending == 0 {
+					return consumererror.NewPermanent(batch.JoinPermanentErrors())
+				}
 			}
 
-			st.RetryableErrors(rest)
-			return consumererror.NewLogs(err, logs)
-		}
+			if pending > 0 {
+				c.log.Sugar().Infof("Will retry %v pending events", pending)
+				st.RetryableErrors(pending)
+				return consumererror.NewLogs(err, batch.RetryPendingLogs())
+			}
 
+			return err
+		}
 	}
 
-	//batch.ACK()
+	// Other permanent errors not related to the client's sending
+	if batch.PermanentErrorsCount() > 0 {
+		return consumererror.NewPermanent(batch.JoinPermanentErrors())
+	}
+
 	return nil
 }
 
-func (c *syncClient) publishWindowed(events []plog.LogRecord) (int, error) {
-	batchSize := len(events)
+func (c *syncClient) logBatchPermanentErrors(batch *internal.LogRecordBatch) {
+	permanent := batch.PermanentErrorsCount()
+	if permanent > 0 {
+		err := batch.JoinPermanentErrors()
+		c.log.Sugar().Errorf("%v events permanently dropped due to unrecoverable errors: %+v", permanent, err)
+	}
+}
+
+func (c *syncClient) publishWindowed(batch *internal.LogRecordBatch) (int, error) {
+	batchSize := batch.Len()
 	windowSize := c.win.get()
-	c.log.Sugar().Debugf("Try to publish %v events to logstash host %s with window size %v",
+
+	c.log.Sugar().Debugf("Try to publish %v events to host %s with window size %v",
 		batchSize, c.Host(), windowSize)
 
-	// prepare message payload
-	if batchSize > windowSize {
-		events = events[:windowSize]
-	}
-
-	n, err := c.sendEvents(events)
+	n, err := c.sendEvents(batch, windowSize)
 	if err != nil {
 		return n, err
 	}
@@ -208,28 +201,34 @@ func (c *syncClient) publishWindowed(events []plog.LogRecord) (int, error) {
 	return n, nil
 }
 
-func (c *syncClient) sendEvents(events []plog.LogRecord) (int, error) {
-	window := make([]interface{}, 0, len(events))
-	//TODO: needs more tests and definitions regarding non-beats events actions
-	for i := range events {
-		logRecord := events[i]
-		logRecordBody, ok := newLogRecordBody(&logRecord)
-		if !ok {
-			return 0, consumererror.NewPermanent(errors.New("invalid beats event body"))
-		}
+func (c *syncClient) sendAllEvents(batch *internal.LogRecordBatch) (int, error) {
+	return c.sendEvents(batch, 0)
+}
 
-		metadata := extractEventMetadata(logRecordBody)
-		if !isBeatsEvent(metadata) {
-			return 0, consumererror.NewPermanent(errors.New("received a non-beats event"))
-		}
+func (c *syncClient) sendEvents(batch *internal.LogRecordBatch, size int) (int, error) {
+	var lumberjackWindow []any
+	var lumberjackWindowAck []*internal.LogRecordBatchItem
 
-		timestamp, ok := extractEventTimestamp(logRecordBody)
-		if !ok {
-			timestamp = logRecord.ObservedTimestamp().AsTime()
-		}
+	pendingLogs := batch.PendingLogs()
+	var windowSize int
+	if size > 0 && size < len(pendingLogs) {
+		windowSize = size
+	} else {
+		windowSize = len(pendingLogs)
+	}
 
-		fields := logRecordBody.AsRaw()
-		window = append(window, &beat.Event{Timestamp: timestamp, Meta: metadata, Fields: fields})
+	for _, event := range pendingLogs[:windowSize] {
+		beatsEvent, err := beat.FromLogRecord(event.LogRecord)
+		if err != nil {
+			batch.PermanentError(event, err)
+			continue
+		}
+		lumberjackWindow = append(lumberjackWindow, beatsEvent)
+		lumberjackWindowAck = append(lumberjackWindowAck, event)
+	}
+
+	if len(lumberjackWindow) == 0 {
+		return 0, nil
 	}
 
 	// TODO: Move to the load-balancer?
@@ -238,47 +237,10 @@ func (c *syncClient) sendEvents(events []plog.LogRecord) (int, error) {
 		return 0, err
 	}
 
-	return c.client.Send(window)
-}
-
-func isBeatsEvent(metadata map[string]any) bool {
-	_, ok := metadata["beat"]
-	return ok
-}
-
-func newLogRecordBody(logRecord *plog.LogRecord) (*pcommon.Map, bool) {
-	cp := pcommon.NewMap()
-	if logRecord.Body().Type() != pcommon.ValueTypeMap {
-		return nil, false
-	}
-	logRecord.Body().Map().CopyTo(cp)
-	return &cp, true
-}
-
-func extractEventTimestamp(logRecordBody *pcommon.Map) (time.Time, bool) {
-	timestamp, ok := logRecordBody.Get("@timestamp")
-	if !ok {
-		return time.Time{}, false
-	}
-	if timestamp.Type() != pcommon.ValueTypeInt {
-		return time.Time{}, false
+	n, err := c.client.Send(lumberjackWindow)
+	if n > 0 {
+		batch.Ack(lumberjackWindowAck[:n]...)
 	}
 
-	result := time.UnixMilli(timestamp.Int())
-	logRecordBody.Remove("@timestamp")
-	return result, true
-}
-
-func extractEventMetadata(logRecordBody *pcommon.Map) map[string]any {
-	recordMetadata, hasMetadata := logRecordBody.Get("@metadata")
-	if !hasMetadata {
-		return nil
-	}
-	if recordMetadata.Type() != pcommon.ValueTypeMap {
-		return nil
-	}
-
-	metadataMap := recordMetadata.Map()
-	logRecordBody.Remove("@metadata")
-	return metadataMap.AsRaw()
+	return n, err
 }
